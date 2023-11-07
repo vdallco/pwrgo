@@ -3,29 +3,22 @@ package main
 import (
     "fmt"
     "pwr/pwrgo"
-	"log"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func main() {
 	// Import wallet by private key
-	pHex := "E83385AF76B2B1997326B567461FB73DD9C27EAB9E1E86D26779F4650C5F2B75"
-    fmt.Printf("Private key hex: %s\n", pHex)
-    pk, err := crypto.HexToECDSA(pHex)
-    if err != nil {
-        log.Fatal(err.Error())
-    }
-
-	// Random wallet for testing (does not match above Private key)
-	var address = "0x4097a04a9a8fef9ffb4a64e460193e6eb0b557c8"
-	fmt.Println("Running nonce/balance test for: ", address)
+	privateKeyHex := "0xE83385AF76B2B1997326B567461FB73DD9C27EAB9E1E86D26779F4650C5F2B75"
+	var wallet = pwrgo.FromPrivateKey(privateKeyHex)
+	
+    fmt.Printf("Public key: %s\n", wallet.PublicKey)
+    fmt.Printf("Address: %s\n", wallet.Address)
 
 	// Get nonce for address
-	var nonce = pwrgo.NonceOfUser(address)
+	var nonce = pwrgo.NonceOfUser(wallet.Address)
 	fmt.Println("Nonce: ", nonce)
 
 	// Get PWR balance of address
-	var balance = pwrgo.BalanceOf(address)
+	var balance = pwrgo.BalanceOf(wallet.Address)
 	fmt.Println("Balance: ", balance)
 	
 	// Get total blocks count
@@ -41,6 +34,6 @@ func main() {
 	fmt.Println("Latest block: ", latestBlock)
 
 	// Transfer PWR
-	var transferTx = pwrgo.TransferPWR(address, "1", nonce + 1, pk) // send 1 PWR to address, given nonce and private key bytes
+	var transferTx = pwrgo.TransferPWR(wallet.Address, "1", nonce + 1, wallet.PrivateKey) // send 1 PWR to address, given nonce and private key bytes
     fmt.Println("Transfer tx : ", transferTx)
 }
