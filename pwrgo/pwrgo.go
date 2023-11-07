@@ -2,28 +2,14 @@ package pwrgo
 
 import (
    "encoding/json"
-   "io/ioutil"
    "log"
-   "net/http"
-   //"fmt"
    "strconv"
+	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	//"golang.org/x/crypto/sha3"
+    "math/big"
 )
 
-var RPC_ENDPOINT = "https://pwrrpc.pwrlabs.io"
-
-func get(url string) (response string) {
-   resp, err := http.Get(url)
-   if err != nil {
-      log.Fatalln(err)
-   }
-
-   body, err := ioutil.ReadAll(resp.Body)
-   if err != nil {
-      log.Fatalln(err)
-   }
-   response = string(body)
-   return
-}
 
 type Response struct {
    Data Data `json:"data"`
@@ -73,4 +59,32 @@ func GetBlock(blockNumber int) (string) {
 	var blockNumberStr = strconv.Itoa(blockNumber)
 	var response = get(RPC_ENDPOINT + "/block/?blockNumber=" + blockNumberStr)
 	return response
+}
+
+func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateKey) (string) {
+	if len(to) != 42 {
+		return "Invalid address"
+	}
+	if nonce < 0 {
+		return "Nonce cannot be negative"
+	}
+
+	amt := new(big.Int)
+    amt.SetString(amount, 10)
+	var buffer []byte
+	buffer, err := txBytes(0, nonce, amt, to)
+	if err != nil {
+		return "Failed to get tx bytes"
+	}
+
+	signature, err := signMessage(buffer, privateKey)
+	if err != nil {
+		return "Failed to sign message"
+	}
+
+	finalTxn := append(buffer, signature...)
+	var transferTx = hexutil.Encode(finalTxn)
+	var transferTxn = `{"txn":"` + transferTx[2:] + `"}`
+	var result = post(RPC_ENDPOINT + "/broadcast/", transferTxn)
+	return result
 }
