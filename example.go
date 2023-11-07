@@ -3,8 +3,6 @@ package main
 import (
     "fmt"
     "pwr/pwrgo"
-	//"log"
-	//"github.com/ethereum/go-ethereum/crypto"
 )
 
 func main() {
