@@ -9,9 +9,23 @@ import (
 
 type PWRWallet struct {
    PrivateKey *ecdsa.PrivateKey
+   PrivateKeyStr string
    PublicKey string
    Address string
-   
+}
+
+func privateKeyToWallet (privateKey *ecdsa.PrivateKey) *PWRWallet {
+   publicKey := &privateKey.PublicKey
+   publicKeyStr := hexutil.Encode(crypto.FromECDSAPub(publicKey))
+   privateKeyStr := hexutil.Encode(crypto.FromECDSA(privateKey))
+   address := crypto.PubkeyToAddress(*publicKey)
+	
+   var wallet = new(PWRWallet)
+   wallet.PrivateKey = privateKey
+   wallet.PublicKey = publicKeyStr
+   wallet.Address = address.Hex()
+   wallet.PrivateKeyStr = privateKeyStr
+   return wallet
 }
 
 func FromPrivateKey(privateKeyStr string) *PWRWallet {
@@ -24,16 +38,13 @@ func FromPrivateKey(privateKeyStr string) *PWRWallet {
        log.Fatal(err.Error())
    }
 
-   publicKey := &privateKey.PublicKey
-   publicKeyStr := hexutil.Encode(crypto.FromECDSAPub(publicKey))
+   return privateKeyToWallet(privateKey)
+}
 
-   address := crypto.PubkeyToAddress(*publicKey)
-	
-   var wallet = new(PWRWallet)
-
-   wallet.PrivateKey = privateKey
-   wallet.PublicKey = publicKeyStr
-   wallet.Address = address.Hex()
-
-   return wallet
+func NewWallet() *PWRWallet {
+   privateKey, err := crypto.GenerateKey()
+   if err != nil {
+       log.Fatal(err.Error())
+   }
+   return privateKeyToWallet(privateKey)
 }

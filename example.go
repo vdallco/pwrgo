@@ -12,11 +12,11 @@ func main() {
 	
     fmt.Printf("Public key: %s\n", wallet.PublicKey)
     fmt.Printf("Address: %s\n", wallet.Address)
-
+	
 	// Get nonce for address
 	var nonce = pwrgo.NonceOfUser(wallet.Address)
 	fmt.Println("Nonce: ", nonce)
-
+	
 	// Get PWR balance of address
 	var balance = pwrgo.BalanceOf(wallet.Address)
 	fmt.Println("Balance: ", balance)
@@ -32,8 +32,14 @@ func main() {
 	// Get block info by Block Number
 	var latestBlock = pwrgo.GetBlock(blocksCount - 1)
 	fmt.Println("Latest block: ", latestBlock)
-
+	
 	// Transfer PWR
 	var transferTx = pwrgo.TransferPWR(wallet.Address, "1", nonce + 1, wallet.PrivateKey) // send 1 PWR to address, given nonce and private key bytes
     fmt.Println("Transfer tx : ", transferTx)
+
+    // Create new wallet and print address and keys
+    var newWallet = pwrgo.NewWallet()
+	fmt.Println("New wallet address: ", newWallet.Address)
+    fmt.Println("New wallet private key: ", newWallet.PrivateKeyStr)
+    fmt.Println("New wallet public key: ", newWallet.PublicKey)
 }
