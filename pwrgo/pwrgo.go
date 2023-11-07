@@ -4,12 +4,10 @@ import (
    "encoding/json"
    "log"
    "strconv"
-	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	//"golang.org/x/crypto/sha3"
-    "math/big"
+   "crypto/ecdsa"
+   "github.com/ethereum/go-ethereum/common/hexutil"
+   "math/big"
 )
-
 
 type Response struct {
    Data Data `json:"data"`
