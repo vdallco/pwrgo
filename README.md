@@ -11,27 +11,28 @@ go run example.go
 
 # Functions
 
-- NonceOfUser(address string)
-- BalanceOf(address string)
-- BlocksCount()
-- ValidatorsCount()
-- GetBlock(blockNumber int)
-- TransferPWR(address string, amount string, nonce int, private_key)
-
+- NonceOfUser(address string) int
+- BalanceOf(address string) int
+- BlocksCount() int
+- ValidatorsCount() int
+- GetBlock(blockNumber int) int
+- TransferPWR(address string, amount string, nonce int, private_key) string
+- FromPrivateKey(privateKey string) PWRWallet
 
 # Example output
 
 ```
-Private key hex: E83385AF76B2B1997326B567461FB73DD9C27EAB9E1E86D26779F4650C5F2B75
-Running nonce/balance test for:  0x4097a04a9a8fef9ffb4a64e460193e6eb0b557c8
-Nonce:  0
-Balance:  0
-Blocks count:  15
+Public key: 0x04369d83469a66920f31e4cf3bd92cb0bc20c6e88ce010dfa43e5f08bc49d11da87970d4703b3adbc9a140b4ad03a0797a6de2d377c80c369fe76a0f45a7a39d3f
+Address: 0x2605c1Ad496F428aB2b700Edd257f0a378f83750
+Nonce:  1
+Balance:  99999990100
+Blocks count:  49
 Validators count:  2
-Latest block:  {"data":{"block":{"blockHash":"0xc3d3e1bc3838d721987bd983eb6aab2f54c5a2165c9a54920356c39bbb937934","success":true,"blockNumber":14,"blockReward":9800,"transactionCount":1,"transactions":[{"positionInTheBlock":0,"nonceOrValidationHash":"0","size":98,"fee":9800,"from":"0x2605c1ad496f428ab2b700edd257f0a378f83750","to":"0x3e1fa3b7f1dcf20890604c50a01b79ef79a33a5f","txnFee":9800,"type":"Transfer","value":100,"hash":"0x7f57051cc8ba50c7400d89fba0980c27fda6425ec1d8589a5d24f1dc9f2db919"}],"blockSubmitter":"0x61bd8fc1e30526aaf1c4706ada595d6d236d9883","blockSize":217,"timestamp":1699332516}},"status":"success"}
+Latest block:  {"data":{"block":{"blockHash":"0x5b8ea364240abe31266d7856519102ba0a0e84cb7bc1556b3e5af40317f5aef9","success":true,"blockNumber":48,"blockReward":40900,"transactionCount":1,"transactions":[{"positionInTheBlock":0,"nonceOrValidationHash":"6","size":409,"data":"f9014801843b9aca00828dfd94759ff85f2a3f8ebd38bd79bda3af56d499fa4b1f80b8e4f7742d2f00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000008dbdfb3ae060fb00000000000000000000000000000000000000000000000008ac7230489e80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000000000000018363534613665336436373466363331356366643363656430000000000000000062a084608d71ecacf858e00b26363ceee8c5a550e5a51704538f6e0c233c05d504eaa032cd9078b3ab18eeeb2f0d8aec7848291fb2a58ac38d8af713d77bbe67957dac","vmId":31,"fee":40900,"from":"0xc7e9fbfbd60df0cfcf3e8a3c5b30ed0def178c57","to":"VM: 31","txnFee":40900,"type":"VM Data","hash":"0xdbb16e09e89aa16cf69992ee08beb1d66a37b8b4264ccd6adeb74d166026293a"}],"blockSubmitter":"0x61bd8fc1e30526aaf1c4706ada595d6d236d9883","blockSize":528,"timestamp":1699376702}},"status":"success"}
 Transfer tx :  {"data":{"message":"Txn broadcasted to validator nodes"},"status":"success"}
 ```
 
 # To-do:
 
 - wrap as a package or module
+- sign and broadcast VM data
