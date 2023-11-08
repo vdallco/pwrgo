@@ -7,7 +7,7 @@ import (
 
 func main() {
     // Import wallet by private key
-    privateKeyHex := "0xE83385AF76B2B1997326B567461FB73DD9C27EAB9E1E86D26779F4650C5F2B75"
+    privateKeyHex := "0x9d4428c6e0638331b4866b70c831f8ba51c11b031f4b55eed4087bbb8ef0151f"
     var wallet = pwrgo.FromPrivateKey(privateKeyHex)
     
     fmt.Printf("Public key: %s\n", wallet.PublicKey)
@@ -34,8 +34,8 @@ func main() {
     fmt.Println("Latest block: ", latestBlock)
     
     // Transfer PWR
-    var transferTx = pwrgo.TransferPWR(wallet.Address, "1", nonce, wallet.PrivateKey) // send 1 PWR to address, given nonce and private key bytes
-    fmt.Println("Transfer tx : ", transferTx)
+    // var transferTx = pwrgo.TransferPWR("0x61bd8fc1e30526aaf1c4706ada595d6d236d9883", "123", nonce, wallet.PrivateKey) // send 1 PWR to address, given nonce and private key bytes
+    // fmt.Println("Transfer tx : ", transferTx)
     
     // Create new wallet and print address and keys
     var newWallet = pwrgo.NewWallet()

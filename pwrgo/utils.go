@@ -9,9 +9,11 @@ import (
 
 var RPC_ENDPOINT = "https://pwrrpc.pwrlabs.io"
 
+
 func txBytes(txType int, nonce int, amount *big.Int, recipient string) ([]byte, error) {
    typeByte := decToBytes(txType, 1)
    nonceBytes := decToBytes(nonce, 4)
+
    amountBytes := amount.Bytes()
    recipientBytes, err := hex.DecodeString(recipient[2:])
    if err != nil {
@@ -20,7 +22,7 @@ func txBytes(txType int, nonce int, amount *big.Int, recipient string) ([]byte, 
    
    paddedNonce := make([]byte, 4)
    copy(paddedNonce[4-len(nonceBytes):], nonceBytes)
-   
+
    paddedAmount := make([]byte, 8)
    copy(paddedAmount[8-len(amountBytes):], amountBytes)
    
@@ -56,7 +58,7 @@ func vmDataBytes(vmId *big.Int, nonce int, data []byte) ([]byte, error) {
 func decToBytes(value, length int) []byte {
    result := make([]byte, length)
    for i := 0; i < length; i++ {
-      result[i] = byte(value >> (8 * i))
+      result[length-1-i] = byte(value >> (8 * i))
    }
    return result
 }
