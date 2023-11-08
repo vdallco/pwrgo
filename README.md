@@ -16,9 +16,10 @@ go run example.go
 - BlocksCount() int
 - ValidatorsCount() int
 - GetBlock(blockNumber int) int
-- TransferPWR(address string, amount string, nonce int, private_key) string
+- TransferPWR(address string, amount string, nonce int, PrivateKey) string
 - FromPrivateKey(privateKey string) PWRWallet
 - NewWallet() PWRWallet
+- SendVMDataTx(vmId string, data []byte, nonce int, PrivateKey) string
 
 # Example output
 

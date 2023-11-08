@@ -3,8 +3,8 @@ package pwrgo
 import (
     "log"
     "net/http"
-	"io/ioutil"
-	"bytes"
+    "io/ioutil"
+    "bytes"
 )
 
 func get(url string) (response string) {
