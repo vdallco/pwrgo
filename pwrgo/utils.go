@@ -63,14 +63,6 @@ func decToBytes(value, length int) []byte {
    return result
 }
 
-//func decToBytes(value, length int) []byte {
-//   result := make([]byte, length)
-//   for i := 0; i < length; i++ {
-//      result[i] = byte(value >> (8 * i))
-//   }
-//   return result
-//}
-
 func signMessage(message []byte, privateKey *ecdsa.PrivateKey) ([]byte, error) {
    messageHash := crypto.Keccak256(message)
    signature, err := crypto.Sign(messageHash, privateKey)
