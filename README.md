@@ -40,4 +40,3 @@ New wallet public key:  0x04110631961a78de320903c7747f444677e651fe16e9828fa2fd18
 # To-do:
 
 - wrap as a package or module
-- sign and broadcast VM data
