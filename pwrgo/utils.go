@@ -36,6 +36,23 @@ func txBytes(txType int, nonce int, amount *big.Int, recipient string) ([]byte, 
    return txnBytes, nil
 }
 
+func vmDataBytes(vmId *big.Int, nonce int, data []byte) ([]byte, error) {
+   typeByte := decToBytes(5, 1)
+   nonceBytes := decToBytes(nonce, 4)
+   vmIdBytes := vmId.Bytes()
+
+   paddedNonce := make([]byte, 4)
+   copy(paddedNonce[4-len(nonceBytes):], nonceBytes)
+   
+   var txnBytes []byte
+   txnBytes = append(txnBytes, typeByte...)
+   txnBytes = append(txnBytes, paddedNonce...)
+   txnBytes = append(txnBytes, vmIdBytes...)
+   txnBytes = append(txnBytes, data...)
+   
+   return txnBytes, nil
+}
+
 func decToBytes(value, length int) []byte {
    result := make([]byte, length)
    for i := 0; i < length; i++ {

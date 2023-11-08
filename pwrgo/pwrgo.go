@@ -86,3 +86,29 @@ func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateK
 	var result = post(RPC_ENDPOINT + "/broadcast/", transferTxn)
 	return result
 }
+
+func SendVMDataTx(vmIdStr string, data []byte, nonce int, privateKey *ecdsa.PrivateKey) (string) {
+	if nonce < 0 {
+		return "Nonce cannot be negative"
+	}
+
+	vmId := new(big.Int)
+    vmId.SetString(vmIdStr, 10)
+
+	var buffer []byte
+	buffer, err := vmDataBytes(vmId, nonce, data)
+	if err != nil {
+		return "Failed to get vm data bytes"
+	}
+
+	signature, err := signMessage(buffer, privateKey)
+	if err != nil {
+		return "Failed to sign message"
+	}
+
+	finalTxn := append(buffer, signature...)
+	var dataTx = hexutil.Encode(finalTxn)
+	var dataTxn = `{"txn":"` + dataTx[2:] + `"}`
+	var result = post(RPC_ENDPOINT + "/broadcast/", dataTxn)
+	return result
+}
