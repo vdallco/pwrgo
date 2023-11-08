@@ -31,7 +31,10 @@ func main() {
     
     // Get block info by Block Number
     var latestBlock = pwrgo.GetBlock(blocksCount - 1)
-    fmt.Println("Latest block: ", latestBlock)
+    fmt.Println("Latest block hash: ", latestBlock.BlockHash)
+    fmt.Println("Latest block timestamp: ", latestBlock.Timestamp)
+    fmt.Println("Latest block tx count: ", latestBlock.TransactionCount)
+    fmt.Println("Latest block submitter: ", latestBlock.BlockSubmitter)
     
     // Transfer PWR
     // var transferTx = pwrgo.TransferPWR("0x61bd8fc1e30526aaf1c4706ada595d6d236d9883", "123", nonce, wallet.PrivateKey) // send 1 PWR to address, given nonce and private key bytes
@@ -45,7 +48,7 @@ func main() {
     
     // Send data to VM 1337
     var data = []byte("Hello world")
-    var dataTx = pwrgo.SendVMDataTx("1337", data, nonce, wallet.PrivateKey)
+    var dataTx = pwrgo.SendVMDataTx(1337, data, nonce, wallet.PrivateKey)
     fmt.Println("Data VM tx: ", dataTx)
-
+	
 }
