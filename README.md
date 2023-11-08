@@ -1,3 +1,6 @@
+# This repo has moved
+This repository has been forked by pwrlabs and all development efforts will continue at: https://github.com/pwrlabs/pwrgo
+
 # pwrgo
 Golang library for PWR Chain RPC interactions
 
