@@ -6,8 +6,11 @@ import (
    "strconv"
    "crypto/ecdsa"
    "github.com/ethereum/go-ethereum/common/hexutil"
+   "github.com/ethereum/go-ethereum/crypto"
    "math/big"
 )
+
+var ReturnBlockNumberOnTx = false
 
 type Transaction struct {
 	PositionInTheBlock int `json:"positionInTheBlock"`
@@ -41,11 +44,16 @@ type Data struct {
   BlocksCount int `json:"blocksCount,omitempty"`
   ValidatorsCount int `json:"validatorsCount,omitempty"`
   Block Block `json:"block,omitempty"`
+  Message string `json:"message,omitempty"`
 }
 
 type Response struct {
    Data Data `json:"data"`
    Status string `json:"status"`
+   Success bool
+   TxHash string
+   BlockNumber int
+   Error string
 }
 
 func parseResponse(responseStr string) (response Response) {
@@ -53,6 +61,12 @@ func parseResponse(responseStr string) (response Response) {
     if err != nil {
         log.Fatalf("Error unmarshaling %s", err)
     }
+	if response.Status == "success" {
+		response.Success = true
+	} else {
+		response.Success = false
+		response.Error = response.Data.Message
+	}
     return
 }
 
@@ -87,12 +101,12 @@ func GetBlock(blockNumber int) (Block) {
     return resp.Data.Block
 }
 
-func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateKey) (string) {
+func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateKey) (Response) {
     if len(to) != 42 {
-        return "Invalid address"
+        log.Fatalf("Invalid address ", to)
     }
     if nonce < 0 {
-        return "Nonce cannot be negative"
+        log.Fatalf("Nonce cannot be negative ", nonce)
     }
 
     amt := new(big.Int)
@@ -100,43 +114,60 @@ func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateK
     var buffer []byte
     buffer, err := txBytes(0, nonce, amt, to)
     if err != nil {
-        return "Failed to get tx bytes"
+        log.Fatalf("Failed to get tx bytes ", err.Error())
     }
 
     signature, err := signMessage(buffer, privateKey)
     if err != nil {
-        return "Failed to sign message"
+        log.Fatalf("Failed to sign message ", err.Error())
     }
+
+	var blockNumber = 0
+	if ReturnBlockNumberOnTx {
+		blockNumber = BlocksCount()
+	}
 
     finalTxn := append(buffer, signature...)
     var transferTx = hexutil.Encode(finalTxn)
     var transferTxn = `{"txn":"` + transferTx[2:] + `"}`
     var result = post(RPC_ENDPOINT + "/broadcast/", transferTxn)
-    return result
+	hash := crypto.Keccak256Hash(finalTxn)
+
+	transferResponse := parseResponse(result)
+	transferResponse.TxHash = hash.Hex()
+	transferResponse.BlockNumber = blockNumber
+    return transferResponse
 }
 
-func SendVMDataTx(vmId int64, data []byte, nonce int, privateKey *ecdsa.PrivateKey) (string) {
+func SendVMDataTx(vmId int64, data []byte, nonce int, privateKey *ecdsa.PrivateKey) (Response) {
     if nonce < 0 {
-        return "Nonce cannot be negative"
+        log.Fatalf("Nonce cannot be negative ", nonce)
     }
-
-    //vmId := new(big.Int)
-    //vmId.SetString(vmIdStr, 10)
 
     var buffer []byte
     buffer, err := vmDataBytes(vmId, nonce, data)
     if err != nil {
-        return "Failed to get vm data bytes"
+        log.Fatalf("Failed to get vm data bytes ", err.Error())
     }
 
     signature, err := signMessage(buffer, privateKey)
     if err != nil {
-        return "Failed to sign message"
+        log.Fatalf("Failed to sign message ", err.Error())
     }
+
+	var blockNumber = 0
+	if ReturnBlockNumberOnTx {
+		blockNumber = BlocksCount()
+	}
 
     finalTxn := append(buffer, signature...)
     var dataTx = hexutil.Encode(finalTxn)
     var dataTxn = `{"txn":"` + dataTx[2:] + `"}`
     var result = post(RPC_ENDPOINT + "/broadcast/", dataTxn)
-    return result
+	hash := crypto.Keccak256Hash(finalTxn)
+
+	vmDataTxResponse := parseResponse(result)
+	vmDataTxResponse.TxHash = hash.Hex()
+	vmDataTxResponse.BlockNumber = blockNumber
+    return vmDataTxResponse
 }
