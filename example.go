@@ -36,10 +36,15 @@ func main() {
     fmt.Println("Latest block tx count: ", latestBlock.TransactionCount)
     fmt.Println("Latest block submitter: ", latestBlock.BlockSubmitter)
     
-    // Transfer PWR
-    // var transferTx = pwrgo.TransferPWR("0x61bd8fc1e30526aaf1c4706ada595d6d236d9883", "123", nonce, wallet.PrivateKey) // send 1 PWR to address, given nonce and private key bytes
-    // fmt.Println("Transfer tx : ", transferTx)
-    
+	// Transfer PWR
+	pwrgo.ReturnBlockNumberOnTx = true // automatically calls blocksCount from RPC and returns BlockNumber on tx response
+    var transferTx = pwrgo.TransferPWR("0x61bd8fc1e30526aaf1c4706ada595d6d236d9883", "1", nonce, wallet.PrivateKey) // send 1 PWR
+	if transferTx.Success {
+		fmt.Printf("[Block #%d] Transfer tx hash: %s\n", transferTx.BlockNumber, transferTx.TxHash)
+	} else {
+		fmt.Println("Error sending Transfer tx: ", transferTx.Error)
+	}
+
     // Create new wallet and print address and keys
     var newWallet = pwrgo.NewWallet()
     fmt.Println("New wallet address: ", newWallet.Address)
@@ -48,7 +53,11 @@ func main() {
     
     // Send data to VM 1337
     var data = []byte("Hello world")
-    var dataTx = pwrgo.SendVMDataTx(1337, data, nonce, wallet.PrivateKey)
-    fmt.Println("Data VM tx: ", dataTx)
+    var vmTxResponse = pwrgo.SendVMDataTx(1337, data, nonce, wallet.PrivateKey)
+	if vmTxResponse.Success {
+		fmt.Printf("[Block #%d] VM data tx hash: ", vmTxResponse.BlockNumber, vmTxResponse.TxHash)
+	} else {
+		fmt.Println("Error sending VM data tx: ", vmTxResponse.Error)
+	}
 	
 }
