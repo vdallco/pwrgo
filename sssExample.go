@@ -113,7 +113,8 @@ func hexToEncryptedSecrets(hexSt string) []string {
 		log.Fatal("Error decoding hex string:", err.Error())
 	}
 	combinedSecrets := string(byteSlice)
-	encryptedSecrets := strings.Fields(combinedSecrets)
+	encryptedSecrets := strings.Split(combinedSecrets, ",")
+	//encryptedSecrets := strings.Fields(combinedSecrets)
 	//fmt.Println("Original Strings:", encryptedSecrets)
 	return encryptedSecrets
 }
@@ -123,7 +124,7 @@ func encryptedSecretsToHex(secretsBytes [][]byte) string {
 	//fmt.Println("encryptedSecretsToHex, len secretBytes:", len(secretsBytes))
 	var delimiter = ","
 	var secrets []string
-	for i:=0; i<len(secretsBytes) -1 ;i++ {
+	for i:=0; i<len(secretsBytes) ;i++ {
 		secrets = append(secrets, hex.EncodeToString(secretsBytes[i]))
 	}
 	combinedSecrets := strings.Join(secrets, delimiter)
@@ -140,11 +141,11 @@ func keccak256(input string) []byte {
 	return hash.Sum(nil)
 }
 
-func privateKeyToAddress (privateKey *ecdsa.PrivateKey) string {
-   publicKey := &privateKey.PublicKey
-   address := crypto.PubkeyToAddress(*publicKey)
-   return address.Hex()
-}
+//func privateKeyToAddress (privateKey *ecdsa.PrivateKey) string {
+//   publicKey := &privateKey.PublicKey
+//   address := crypto.PubkeyToAddress(*publicKey)
+//   return address.Hex()
+//}
 
 // Public Key recovery from signature + hash //
 func bytesToECIESPubKey(publicKeyBytes []byte) (*ecies.PublicKey, error) {
@@ -165,13 +166,13 @@ func recoverPublicKeyFromSignature(signature, messageHash []byte) (*ecdsa.Public
 }
 //////////////////////////////////////////////////
 
-func stashSecretsBytes(stasher string, secrets []byte) ([]byte) {
+func stashSecretsBytes(secrets []byte) ([]byte) {
    typeByte := decToBytes(stashSecretsTxType, 1)
-   addrBytes := keccak256(stasher)
+   //addrBytes := keccak256(stasher)
 
    var txnBytes []byte
    txnBytes = append(txnBytes, typeByte...)
-   txnBytes = append(txnBytes, addrBytes...)
+   //txnBytes = append(txnBytes, addrBytes...)
    txnBytes = append(txnBytes, secrets...)
    
    return txnBytes
@@ -185,27 +186,49 @@ func decToBytes(value, length int) []byte {
    return result
 }
 
-func stashSecrets(secrets [][]byte, nonce int, privateKey *ecdsa.PrivateKey) { // stashes ecies encrypted secrets. Not plaintext secrets
+func stashSecrets(secrets [][]byte, nonce int, privateKey *ecdsa.PrivateKey) pwrgo.Response { // stashes ecies encrypted secrets. Not plaintext secrets
     // To stash secrets on Social Recovery VM 222: 
 	// Data template
 	//
-	// first byte is the Tx Type (0 = Register Public Key, 1 = Stash Secrets, 2 = TrusteeRecoverShare)
-	// Bytes 2 - 34 are a Keccak256 hash of the stashers address
-	// Bytes 35 and after are Hex encoded bytes of the encrypted secret shares delimited by commas
+	// first byte is the Tx Type (1 = Stash Secrets, 2 = TrusteeRecoverShare)
+	// Following bytes are Hex encoded bytes of the encrypted secret shares delimited by commas
 	// 
 
-	var stashersAddr = privateKeyToAddress(privateKey)
+	//var stashersAddr = privateKeyToAddress(privateKey)
 	var secretsHex = encryptedSecretsToHex(secrets)
 	var secretBytes,_ = hex.DecodeString(secretsHex)
-	var secretsBytesStashed = stashSecretsBytes(stashersAddr, secretBytes)
+	var secretsBytesStashed = stashSecretsBytes(secretBytes) // stashersAddr, 
 
+	pwrgo.ReturnBlockNumberOnTx = true
     var dataTx = pwrgo.SendVMDataTx(appId, secretsBytesStashed, nonce, privateKey)
 	if dataTx.Success {
-		fmt.Println("Stashed secrets: ", dataTx.TxHash)
+		//fmt.Println("Stashed secrets: ", dataTx.TxHash)
+		return dataTx
 	} else {
 		log.Fatal("Error stashing secrets ", dataTx.Error)
+		return *new(pwrgo.Response)
 	}
 }
+
+//func getBlockNumberByStasher(address string) int {
+//	apiResp := get(pwrExplorerAPI_URL + "/transactionHistory/?address=" + address + "&count=1000&page=1")
+//
+//	var data Data
+//	err := json.Unmarshal([]byte(apiResp), &data)
+//	pwrTx := new(PWRTransaction)
+//	if err != nil {
+//		fmt.Println("Error:", err)
+//		return pwrTx
+//	}
+//	if len(data.Transactions) == 0 {
+//		return pwrTx // empty PWRtx object
+//	}
+//	firstTx := data.Transactions[0] // TO-DO: ensure this first tx is actually sent from address. Endpoint returns tx's to and from
+//
+//	pwrTx.TxHash = firstTx.TxnHash
+//	pwrTx.BlockNumber = firstTx.Block
+//	return pwrTx
+//}
 
 func getFirstTxByAddress(address string) *PWRTransaction {
 	apiResp := get(pwrExplorerAPI_URL + "/transactionHistory/?address=" + address + "&count=10&page=1")
@@ -262,11 +285,12 @@ func main() {
 	var trusteeWallet4 = pwrgo.NewWallet()
 	var trusteeWallet5 = pwrgo.NewWallet()
 
-	trustees = append(trustees, Trustee{Address: trusteeWallet1.Address, ECDSAPrivateKey: trusteeWallet1.PrivateKey})
-	trustees = append(trustees, Trustee{Address: trusteeWallet2.Address, ECDSAPrivateKey: trusteeWallet2.PrivateKey})
-	trustees = append(trustees, Trustee{Address: trusteeWallet3.Address, ECDSAPrivateKey: trusteeWallet3.PrivateKey})
-	trustees = append(trustees, Trustee{Address: trusteeWallet4.Address, ECDSAPrivateKey: trusteeWallet4.PrivateKey})
-	trustees = append(trustees, Trustee{Address: trusteeWallet5.Address, ECDSAPrivateKey: trusteeWallet5.PrivateKey})
+	// TO-DO: Remove Public Keys from Trustees in this block. Instead extract the PubKey from TX Raw Bytes -> Signature
+	trustees = append(trustees, Trustee{Address: trusteeWallet1.Address, PrivateKey: trusteeWallet1.PrivateKeyStr, ECDSAPrivateKey: trusteeWallet1.PrivateKey, PublicKey: trusteeWallet1.PublicKey})
+	trustees = append(trustees, Trustee{Address: trusteeWallet2.Address, PrivateKey: trusteeWallet2.PrivateKeyStr, ECDSAPrivateKey: trusteeWallet2.PrivateKey, PublicKey: trusteeWallet2.PublicKey})
+	trustees = append(trustees, Trustee{Address: trusteeWallet3.Address, PrivateKey: trusteeWallet3.PrivateKeyStr, ECDSAPrivateKey: trusteeWallet3.PrivateKey, PublicKey: trusteeWallet3.PublicKey})
+	trustees = append(trustees, Trustee{Address: trusteeWallet4.Address, PrivateKey: trusteeWallet4.PrivateKeyStr, ECDSAPrivateKey: trusteeWallet4.PrivateKey, PublicKey: trusteeWallet4.PublicKey})
+	trustees = append(trustees, Trustee{Address: trusteeWallet5.Address, PrivateKey: trusteeWallet5.PrivateKeyStr, ECDSAPrivateKey: trusteeWallet5.PrivateKey, PublicKey: trusteeWallet5.PublicKey})
 
    fmt.Println("Trustees: ", trustees)
 
@@ -279,7 +303,7 @@ func main() {
    
    fmt.Println("Shares: ", shares)
 
-	//////////////////// Encrypt Shares ////////////////////////
+	//////////////////// Encrypt each Share so only 1 Trustee can read it ////////////////////////
     if privateKeyStr[0:2] == "0x" {
        privateKeyStr = privateKeyStr[2:]
     }
@@ -304,7 +328,7 @@ func main() {
 		var faucetResult = post(pwrFaucetAPI_URL + "claimPWR/?userAddress=" + trustees[i].Address, `{"userAddress":"`+trustees[i].Address+`"}`)
 		fmt.Printf("Trustee %d faucet result: %s\n", i, faucetResult)
 
-		var waitTimeSecs = time.Duration(10)
+		var waitTimeSecs = time.Duration(15)
 		fmt.Printf("Waiting %d seconds...\n", waitTimeSecs)
         time.Sleep(waitTimeSecs * time.Second) 
 
@@ -315,7 +339,9 @@ func main() {
 		if transferTx.Success {
 			fmt.Printf("[Block #%d] Trustee%d Transfer tx: %s\n", transferTx.BlockNumber, i, transferTx.TxHash)
 		} else {
-			log.Fatal("Error for Trustee%d Transfer tx: %s\n", i, transferTx.Error)
+			fmt.Printf("[Block #%d] Trustee%d Transfer tx: %s\n", transferTx.BlockNumber, i, transferTx.TxHash)
+			fmt.Printf("Error for Trustee%d Transfer tx: %s\n", i, transferTx.Error)
+			log.Fatal("Error")
 		}
 
 		fmt.Printf("Waiting %d seconds...\n", waitTimeSecs)
@@ -327,36 +353,36 @@ func main() {
 	    // 	log.Fatal("Error: Trustee has no transactions on PWR chain (cannot extract public key from signature + hash) for " + trustees[i].Address)
 		// }
 		// 
-		fmt.Println("First txn: ", transferTxHash) //pwrTx.TxHash)
-
-		var txnData []byte
-		block := pwrgo.GetBlock(transferTx.BlockNumber)
-        for _, txn := range block.Transactions {
-			if txn.Hash == transferTxHash {
-				// fmt.Println("Found first tx for trustee: ", txn.Hash)
-				txnDataBytes, _ := hex.DecodeString(txn.Data)
-				txnData = txnDataBytes // TO-DO: instead of reading bytes of TX data, use new RPC call to get tx bytes
-			}
-        }
-		// fmt.Println("First tx for trustee: ", txnData)
-
-		if len(txnData) == 0 {
-			log.Fatal("Error: Could not find trustee TX data for ", trustees[i].Address, " on Block number ", pwrTx.BlockNumber)
-		}
-
-		txnDataHex, signatureHex := separateSignatureFromTxnData(txnData)
-
-		
-		fmt.Println("TxData Buffer: ", txnDataHex)
-		fmt.Println("signatureHex: ", signatureHex)
-
-		var ecdsaPubKey,err = recoverPublicKeyFromSignature(signatureHex, txnDataHex)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		ecdsaPubKeyBytes := crypto.FromECDSAPub(ecdsaPubKey)
-		var eciesPubKey,_ = bytesToECIESPubKey(ecdsaPubKeyBytes) // passed empty bytes ERR
-		trustees[i].PublicKey = eciesPubKey.Hex(false)
+		//fmt.Println("First txn: ", transferTxHash) //pwrTx.TxHash)
+		//
+		//var txnData []byte
+		//block := pwrgo.GetBlock(transferTx.BlockNumber)
+        //for _, txn := range block.Transactions {
+		//	if txn.Hash == transferTxHash {
+		//		// fmt.Println("Found first tx for trustee: ", txn.Hash)
+		//		txnDataBytes, _ := hex.DecodeString(txn.Data)
+		//		txnData = txnDataBytes // TO-DO: instead of reading bytes of TX data, use new RPC call to get tx bytes
+		//	}
+        //}
+		//// fmt.Println("First tx for trustee: ", txnData)
+		//
+		//if len(txnData) == 0 {
+		//	log.Fatal("Error: Could not find trustee TX data for ", trustees[i].Address, " on Block number ", pwrTx.BlockNumber)
+		//}
+		//
+		//txnDataHex, signatureHex := separateSignatureFromTxnData(txnData)
+		//
+		//
+		//fmt.Println("TxData Buffer: ", txnDataHex)
+		//fmt.Println("signatureHex: ", signatureHex)
+		//
+		//var ecdsaPubKey,err = recoverPublicKeyFromSignature(signatureHex, txnDataHex)
+		//if err != nil {
+		//	log.Fatal(err.Error())
+		//}
+		//ecdsaPubKeyBytes := crypto.FromECDSAPub(ecdsaPubKey)
+		//var eciesPubKey,_ = bytesToECIESPubKey(ecdsaPubKeyBytes) // passed empty bytes ERR
+		//trustees[i].PublicKey = eciesPubKey.Hex(false)
 		/////////////////////////////////////////////////////////////////////
 
 
@@ -382,15 +408,72 @@ func main() {
         fmt.Println("--------------------------")
 		// sharesEncrypted[i] = cipherHex
 		sharesEncrypted = append(sharesEncrypted, cipherBytes)
-		trustees[i].EncryptedSecretShare = cipherBytes
+		//trustees[i].EncryptedSecretShare = cipherBytes
     }
 
     fmt.Println("Shares encrypted : ", sharesEncrypted)
     fmt.Println("--------------------------")
 
-	stashSecrets(sharesEncrypted, nonce, privateKey)
+	secretsResponse := stashSecrets(sharesEncrypted, nonce, privateKey)
+	
+	waitTimeSecs := time.Duration(15)
+	fmt.Printf("Waiting %d seconds...\n", waitTimeSecs)
+    time.Sleep(waitTimeSecs * time.Second) 
 
    //////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+	// TO-DO: Instead of using the BlockNumber on Response for finding stashed secrets, query the
+	//		   pwrexplorer API to get tx's by Stasher address, and use the earliest VM:222 tx (?) block number to scan w/ RPC
+	//		   Or find a better way to find block number by stasher addr
+
+	// TO-DO: Fix this implementation for multiple secrets stashed by same address
+
+	////////// Get secret share bytes delimited from blockchain ///////////////
+
+	
+    fmt.Printf("[Block #%d] Stash tx : %s\n", secretsResponse.BlockNumber, secretsResponse.TxHash)
+
+	var secretsBlockData = pwrgo.GetBlock(secretsResponse.BlockNumber)
+
+	
+    fmt.Printf("[Block #%d] Block Hash: %s\n\n", secretsResponse.BlockNumber, secretsBlockData.BlockHash)
+
+	var secretsSharesBytesDelimited string
+	for _, txn := range secretsBlockData.Transactions {
+		
+		fmt.Printf("Block tx: %s\n", txn.Hash)
+
+		if txn.Hash == secretsResponse.TxHash {
+			fmt.Println("Found secret stash tx: ", txn.Hash)
+			secretsSharesBytesDelimited = txn.Data
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+		}
+    }
+
+	
+    fmt.Println("Shares from chain, including type byte :", secretsSharesBytesDelimited)
+
+	/////////////////////////////////////////////////////////////
+
+	/////// Separate the delimited bytes into Trustees EncryptedSecretShare ///////////////
+
+	secretSharesEncryptedTrimType := secretsSharesBytesDelimited[2:]
+	var encryptedSecretShares = hexToEncryptedSecrets(secretSharesEncryptedTrimType)
+
+    fmt.Println("Encrypted shares length (from on-chain): ", len(encryptedSecretShares))
+    fmt.Println("Encrypted shares from chain, exluding type byte. Separated: ", encryptedSecretShares)
+	for i := 0; i < len(trustees); i++ {
+        cipherBytes, err := hex.DecodeString(encryptedSecretShares[i])
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		trustees[i].EncryptedSecretShare = cipherBytes
+	}
+
+	/////////////////////////////////////////////////////////////////////////////////////
 
 	/// Remove 2 Trustees (secret shares) randomly ////
 	index1 := rand.Intn(len(trustees))
@@ -411,8 +494,9 @@ func main() {
    fmt.Println("Trustees (2 removed): ", majorityTrustees)
    //////////////////////////////////////////////////////////////
 
-
 	/////////////// Decryption of 3 shares ///////////////////
+
+	// Get TX data and decode the TX type, 
 
 	var decryptedSecretShares []string
 
@@ -435,6 +519,7 @@ func main() {
     fmt.Println("Decrypted shares: ", decryptedSecretShares)
 
 	///////////////////////////////////
+
 
 
    // Secret Recovery
