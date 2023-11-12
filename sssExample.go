@@ -34,6 +34,9 @@ type Trustee struct {
     PrivateKey string
     ECDSAPrivateKey *ecdsa.PrivateKey
 	EncryptedSecretShare []byte
+	DecryptedSecretShare []byte
+	DecryptedSecretShareBlockNumber int
+	DecryptedSecretShareTx string
 }
 
 type PWRTransaction struct {
@@ -168,12 +171,20 @@ func recoverPublicKeyFromSignature(signature, messageHash []byte) (*ecdsa.Public
 
 func stashSecretsBytes(secrets []byte) ([]byte) {
    typeByte := decToBytes(stashSecretsTxType, 1)
-   //addrBytes := keccak256(stasher)
 
    var txnBytes []byte
    txnBytes = append(txnBytes, typeByte...)
-   //txnBytes = append(txnBytes, addrBytes...)
    txnBytes = append(txnBytes, secrets...)
+   
+   return txnBytes
+}
+
+func recoverShareBytes(encryptedSecret []byte) ([]byte) {
+   typeByte := decToBytes(trusteeRecoverSecret, 1)
+
+   var txnBytes []byte
+   txnBytes = append(txnBytes, typeByte...)
+   txnBytes = append(txnBytes, encryptedSecret...)
    
    return txnBytes
 }
@@ -184,6 +195,22 @@ func decToBytes(value, length int) []byte {
       result[length-1-i] = byte(value >> (8 * i))
    }
    return result
+}
+
+func recoverSecret(encryptedSecret []byte, nonce int, recoveryAddress string, privateKey *ecdsa.PrivateKey) pwrgo.Response {
+	// This function is called by trustees who have decrypted their secret share. The decrypted secret share is
+	// re-encrypted such that only the recovery address can decrypt it. 
+
+	var secretBytesForRecovery = recoverShareBytes(encryptedSecret)
+
+	pwrgo.ReturnBlockNumberOnTx = true
+    var dataTx = pwrgo.SendVMDataTx(appId, secretBytesForRecovery, nonce, privateKey)
+	if dataTx.Success {
+		return dataTx
+	} else {
+		log.Fatal("Error storing secret recovery: ", dataTx.Error)
+		return *new(pwrgo.Response)
+	}
 }
 
 func stashSecrets(secrets [][]byte, nonce int, privateKey *ecdsa.PrivateKey) pwrgo.Response { // stashes ecies encrypted secrets. Not plaintext secrets
@@ -284,6 +311,8 @@ func main() {
 	var trusteeWallet3 = pwrgo.NewWallet()
 	var trusteeWallet4 = pwrgo.NewWallet()
 	var trusteeWallet5 = pwrgo.NewWallet()
+
+	var recoveryWallet = pwrgo.NewWallet()
 
 	// TO-DO: Remove Public Keys from Trustees in this block. Instead extract the PubKey from TX Raw Bytes -> Signature
 	trustees = append(trustees, Trustee{Address: trusteeWallet1.Address, PrivateKey: trusteeWallet1.PrivateKeyStr, ECDSAPrivateKey: trusteeWallet1.PrivateKey, PublicKey: trusteeWallet1.PublicKey})
@@ -436,7 +465,6 @@ func main() {
 
 	var secretsBlockData = pwrgo.GetBlock(secretsResponse.BlockNumber)
 
-	
     fmt.Printf("[Block #%d] Block Hash: %s\n\n", secretsResponse.BlockNumber, secretsBlockData.BlockHash)
 
 	var secretsSharesBytesDelimited string
@@ -498,8 +526,6 @@ func main() {
 
 	// Get TX data and decode the TX type, 
 
-	var decryptedSecretShares []string
-
 	for i := 0; i < len(majorityTrustees); i++ {
 		privKeyStr := majorityTrustees[i].PrivateKey
 		if privKeyStr[0:2] == "0x" {
@@ -513,16 +539,92 @@ func main() {
 		plaintextBytes, _ := ecies.Decrypt(pk, majorityTrustees[i].EncryptedSecretShare)
 		fmt.Println("Plaintext bytes: ", plaintextBytes)
 		fmt.Println("Plaintext: ", string(plaintextBytes[:]))
-		decryptedSecretShares = append(decryptedSecretShares, string(plaintextBytes[:]))
+		//decryptedSecretShares = append(decryptedSecretShares, string(plaintextBytes[:]))
+		majorityTrustees[i].DecryptedSecretShare = plaintextBytes
 	}
 	
-    fmt.Println("Decrypted shares: ", decryptedSecretShares)
+    //fmt.Println("Decrypted shares: ", decryptedSecretShares)
 
 	///////////////////////////////////
 
 
+	////// Each of the 3 trustees Encrypt's their Decrypted Secret Share and stores it on-chain, such that only the recovery addr can recover it //////
 
-   // Secret Recovery
+	pubKeyStr := recoveryWallet.PublicKey
+    if pubKeyStr[0:2] == "0x" {
+      pubKeyStr = pubKeyStr[2:]
+    }
+	
+    pubKey, err := ecies.NewPublicKeyFromHex(pubKeyStr) 
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	for i := 0; i < len(majorityTrustees); i++ {
+	    cipherBytes, err := ecies.Encrypt(pubKey, majorityTrustees[i].DecryptedSecretShare)
+		if err != nil {
+			log.Fatal("Error: ", err.Error())
+		}
+		var recoveryResponse = recoverSecret(cipherBytes, 1, recoveryWallet.Address, majorityTrustees[i].ECDSAPrivateKey)
+		if recoveryResponse.Success {
+			fmt.Printf("[Block #%d] Trustee %d stored secret recovery tx: %s\n\n", recoveryResponse.BlockNumber, i, recoveryResponse.TxHash)
+			majorityTrustees[i].DecryptedSecretShareBlockNumber = recoveryResponse.BlockNumber
+			majorityTrustees[i].DecryptedSecretShareTx = recoveryResponse.TxHash
+			
+			waitTimeSecs := time.Duration(5)
+			fmt.Printf("Waiting %d seconds...\n", waitTimeSecs)
+			time.Sleep(waitTimeSecs * time.Second) 
+		} else {
+			log.Fatal("Error: ", recoveryResponse.Error)
+		}
+	}
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+   //// Secret Recovery from on-chain Secret Recovery tx's submitted by 3/5 trustees
+
+   // TO-DO: GetBlock for each of the Trustees DecryptedSecretShareBlockNumber
+   // 		 and get the tx data for each Secret Recovery.
+   //        Strip first byte (type byte) from tx data. Decrypt using recoveryAccount publicKey into decryptedSecretShares.
+		
+	var decryptedSecretShares []string
+
+	recoveryPrivKeyStr := recoveryWallet.PrivateKeyStr
+	if recoveryPrivKeyStr[0:2] == "0x" {
+	recoveryPrivKeyStr = recoveryPrivKeyStr[2:]
+	}
+	rpk, err := ecies.NewPrivateKeyFromHex(recoveryPrivKeyStr)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	for i := 0; i < len(majorityTrustees); i++ {
+		fmt.Printf("Searching for recovery block for trustee %s\n", majorityTrustees[i].Address)
+		var recoveryBlockData = pwrgo.GetBlock(majorityTrustees[i].DecryptedSecretShareBlockNumber)
+	
+		for _, txn := range recoveryBlockData.Transactions {
+			if txn.Hash == majorityTrustees[i].DecryptedSecretShareTx {
+				fmt.Println("Found secret recovery tx: ", txn.Hash)
+				fmt.Println("Secret recovery tx data: ", txn.Data)
+				fmt.Println("Secret recovery tx stripped: ", txn.Data[2:])
+
+				encryptedRecoveryBytes,_ := hex.DecodeString(txn.Data[2:]) // trim first byte (type byte)
+				plaintextBytes, _ := ecies.Decrypt(rpk, encryptedRecoveryBytes)
+				fmt.Println("Secret plaintext: ", string(plaintextBytes[:]))
+				decryptedSecretShares = append(decryptedSecretShares, string(plaintextBytes[:]))
+				if err != nil {
+					log.Fatal(err.Error())
+				}
+			}
+		}
+
+		waitTimeSecs := time.Duration(5)
+		fmt.Printf("Waiting %d seconds...\n", waitTimeSecs)
+		time.Sleep(waitTimeSecs * time.Second) 
+	}
+
+   // Final recovery from on-chain data
    var secret,_ = sssa.Combine(decryptedSecretShares)
    fmt.Println("Recovered: ", secret)
 }
