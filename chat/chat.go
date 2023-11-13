@@ -4,7 +4,7 @@ import (
     "fmt"
     "os"
     "bufio"
-    "pwr/pwrgo"
+    "github.com/pwrlabs/pwrgo/pwrgo"
     "time"
 )
 

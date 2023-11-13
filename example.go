@@ -2,7 +2,7 @@ package main
 
 import (
     "fmt"
-    "pwr/pwrgo"
+    "github.com/pwrlabs/pwrgo/pwrgo"
 )
 
 func main() {
@@ -55,7 +55,7 @@ func main() {
     var data = []byte("Hello world")
     var vmTxResponse = pwrgo.SendVMDataTx(1337, data, nonce, wallet.PrivateKey)
 	if vmTxResponse.Success {
-		fmt.Printf("[Block #%d] VM data tx hash: ", vmTxResponse.BlockNumber, vmTxResponse.TxHash)
+		fmt.Printf("[Block #%d] VM data tx hash: %s", vmTxResponse.BlockNumber, vmTxResponse.TxHash)
 	} else {
 		fmt.Println("Error sending VM data tx: ", vmTxResponse.Error)
 	}

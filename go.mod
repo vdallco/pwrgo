@@ -1,4 +1,4 @@
-module pwr
+module github.com/pwrlabs/pwrgo
 
 go 1.21.3
 

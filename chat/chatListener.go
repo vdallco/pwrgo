@@ -2,7 +2,7 @@ package main
 
 import (
     "fmt"
-    "pwr/pwrgo"
+    "github.com/pwrlabs/pwrgo/pwrgo"
     "encoding/hex"
     "time"
 )
