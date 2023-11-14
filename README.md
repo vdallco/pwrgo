@@ -6,7 +6,7 @@ Golang library for PWR Chain RPC interactions
 To install the pwrgo library, run
 
 ```
-go get github.com/pwrlabs/pwrgo
+go get github.com/pwrlabs/pwrgo@v0.0.2
 ```
 
 # Using the library
@@ -67,11 +67,7 @@ New wallet public key:  0x04bd6f3c8402b9f58c8b5c432f43871c91733f2eef5b8cfa2f54d0
 
 ## Chat
 
-To interact with the simple chat VM, open the chat/ folder and run
-
-```
-go run chat.go chatListener.go
-```
+See the Go-Messaging-App repo: https://github.com/pwrlabs/Go-Messaging-App
 
 ## Social Recovery
 
