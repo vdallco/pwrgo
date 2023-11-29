@@ -16,6 +16,7 @@ type Transaction struct {
 	PositionInTheBlock int `json:"positionInTheBlock"`
 	NonceOrValidationHash string `json:"nonceOrValidationHash"`
 	Size int `json:"size"`
+	RawTxn string `json:"rawTxn"`
 	Data string `json:"data"`
 	VmId int `json:"vmId"`
 	Fee int `json:"fee"`
@@ -38,70 +39,59 @@ type Block struct {
 	Timestamp int `json:"timestamp"`
 }
 
-type Data struct {
+type RPCResponse struct {
+  Message string `json:"message,omitempty"`
   Nonce int `json:"nonce,omitempty"`
   Balance int `json:"balance,omitempty"`
   BlocksCount int `json:"blocksCount,omitempty"`
   ValidatorsCount int `json:"validatorsCount,omitempty"`
   Block Block `json:"block,omitempty"`
-  Message string `json:"message,omitempty"`
+  Success bool
+  TxHash string
+  BlockNumber int
+  Error string
 }
 
-type Response struct {
-   Data Data `json:"data"`
-   Status string `json:"status"`
-   Success bool
-   TxHash string
-   BlockNumber int
-   Error string
-}
-
-func parseResponse(responseStr string) (response Response) {
+func parseRPCResponse(responseStr string) (response RPCResponse) {
     err := json.Unmarshal([]byte(responseStr), &response)
     if err != nil {
         log.Fatalf("Error unmarshaling %s", err)
     }
-	if response.Status == "success" {
-		response.Success = true
-	} else {
-		response.Success = false
-		response.Error = response.Data.Message
-	}
     return
 }
 
 func NonceOfUser(address string) (int) {
     var response = get(RPC_ENDPOINT + "/nonceOfUser/?userAddress=" + address)
-    var resp = parseResponse(response)
-    return resp.Data.Nonce
+    var resp = parseRPCResponse(response)
+    return resp.Nonce
 }
 
 func BalanceOf(address string) (int) {
     var response = get(RPC_ENDPOINT + "/balanceOf/?userAddress=" + address)
-    var resp = parseResponse(response)
-    return resp.Data.Balance
+    var resp = parseRPCResponse(response)
+    return resp.Balance
 }
 
 func BlocksCount() (int) {
     var response = get(RPC_ENDPOINT + "/blocksCount/")
-    var resp = parseResponse(response)
-    return resp.Data.BlocksCount
+    var resp = parseRPCResponse(response)
+    return resp.BlocksCount
 }
 
 func ValidatorsCount() (int) {
-    var response = get(RPC_ENDPOINT + "/validatorsCount/")
-    var resp = parseResponse(response)
-    return resp.Data.ValidatorsCount
+    var response = get(RPC_ENDPOINT + "/totalValidatorsCount/")
+    var resp = parseRPCResponse(response)
+    return resp.ValidatorsCount
 }
 
 func GetBlock(blockNumber int) (Block) {
     var blockNumberStr = strconv.Itoa(blockNumber)
     var response = get(RPC_ENDPOINT + "/block/?blockNumber=" + blockNumberStr)
-	var resp = parseResponse(response)
-    return resp.Data.Block
+	var resp = parseRPCResponse(response)
+    return resp.Block
 }
 
-func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateKey) (Response) {
+func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateKey) (RPCResponse) {
     if len(to) != 42 {
         log.Fatalf("Invalid address ", to)
     }
@@ -131,15 +121,24 @@ func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateK
     var transferTx = hexutil.Encode(finalTxn)
     var transferTxn = `{"txn":"` + transferTx[2:] + `"}`
     var result = post(RPC_ENDPOINT + "/broadcast/", transferTxn)
+
 	hash := crypto.Keccak256Hash(finalTxn)
 
-	transferResponse := parseResponse(result)
+	transferResponse := parseRPCResponse(result)
+	
+	if transferResponse.Message == "Txn broadcasted to validator nodes" {
+		transferResponse.Success = true
+	} else {
+		transferResponse.Success = false
+		transferResponse.Error = transferResponse.Message
+	}
+
 	transferResponse.TxHash = hash.Hex()
 	transferResponse.BlockNumber = blockNumber
     return transferResponse
 }
 
-func SendVMDataTx(vmId int64, data []byte, nonce int, privateKey *ecdsa.PrivateKey) (Response) {
+func SendVMDataTx(vmId int64, data []byte, nonce int, privateKey *ecdsa.PrivateKey) (RPCResponse) {
     if nonce < 0 {
         log.Fatalf("Nonce cannot be negative ", nonce)
     }
@@ -166,7 +165,15 @@ func SendVMDataTx(vmId int64, data []byte, nonce int, privateKey *ecdsa.PrivateK
     var result = post(RPC_ENDPOINT + "/broadcast/", dataTxn)
 	hash := crypto.Keccak256Hash(finalTxn)
 
-	vmDataTxResponse := parseResponse(result)
+	vmDataTxResponse := parseRPCResponse(result)
+
+	if vmDataTxResponse.Message == "Txn broadcasted to validator nodes" {
+		vmDataTxResponse.Success = true
+	} else {
+		vmDataTxResponse.Success = false
+		vmDataTxResponse.Error = vmDataTxResponse.Message
+	}
+	
 	vmDataTxResponse.TxHash = hash.Hex()
 	vmDataTxResponse.BlockNumber = blockNumber
     return vmDataTxResponse

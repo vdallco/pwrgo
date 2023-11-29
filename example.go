@@ -24,7 +24,7 @@ func main() {
     // Get total blocks count
     var blocksCount = pwrgo.BlocksCount()
     fmt.Println("Blocks count: ", blocksCount)
-    
+
     // Get total validators count
     var validatorsCount = pwrgo.ValidatorsCount()
     fmt.Println("Validators count: ", validatorsCount)
@@ -41,8 +41,10 @@ func main() {
     var transferTx = pwrgo.TransferPWR("0x61bd8fc1e30526aaf1c4706ada595d6d236d9883", "1", nonce, wallet.PrivateKey) // send 1 PWR
 	if transferTx.Success {
 		fmt.Printf("[Block #%d] Transfer tx hash: %s\n", transferTx.BlockNumber, transferTx.TxHash)
+		nonce = nonce + 1 // increment nonce since we just Transferred PWR
 	} else {
 		fmt.Println("Error sending Transfer tx: ", transferTx.Error)
+		fmt.Println("Error sending ", transferTx.TxHash)
 	}
 
     // Create new wallet and print address and keys
@@ -58,6 +60,7 @@ func main() {
 		fmt.Printf("[Block #%d] VM data tx hash: %s", vmTxResponse.BlockNumber, vmTxResponse.TxHash)
 	} else {
 		fmt.Println("Error sending VM data tx: ", vmTxResponse.Error)
+		fmt.Println("Error sending ", vmTxResponse.TxHash)
 	}
 	
 }
