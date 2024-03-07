@@ -6,13 +6,17 @@ import (
    "strconv"
    "crypto/ecdsa"
    "github.com/ethereum/go-ethereum/common/hexutil"
+   "github.com/ethereum/go-ethereum/crypto"
    "math/big"
 )
+
+var ReturnBlockNumberOnTx = false
 
 type Transaction struct {
 	PositionInTheBlock int `json:"positionInTheBlock"`
 	NonceOrValidationHash string `json:"nonceOrValidationHash"`
 	Size int `json:"size"`
+	RawTxn string `json:"rawTxn"`
 	Data string `json:"data"`
 	VmId int `json:"vmId"`
 	Fee int `json:"fee"`
@@ -35,20 +39,24 @@ type Block struct {
 	Timestamp int `json:"timestamp"`
 }
 
-type Data struct {
+type RPCResponse struct {
+  Message string `json:"message,omitempty"`
   Nonce int `json:"nonce,omitempty"`
   Balance int `json:"balance,omitempty"`
   BlocksCount int `json:"blocksCount,omitempty"`
   ValidatorsCount int `json:"validatorsCount,omitempty"`
   Block Block `json:"block,omitempty"`
+  Success bool
+  TxHash string
+  BlockNumber int
+  Error string
 }
 
-type Response struct {
-   Data Data `json:"data"`
-   Status string `json:"status"`
+func SetRpcNodeUrl(url string) {
+   RPC_ENDPOINT = url;
 }
 
-func parseResponse(responseStr string) (response Response) {
+func parseRPCResponse(responseStr string) (response RPCResponse) {
     err := json.Unmarshal([]byte(responseStr), &response)
     if err != nil {
         log.Fatalf("Error unmarshaling %s", err)
@@ -58,41 +66,41 @@ func parseResponse(responseStr string) (response Response) {
 
 func NonceOfUser(address string) (int) {
     var response = get(RPC_ENDPOINT + "/nonceOfUser/?userAddress=" + address)
-    var resp = parseResponse(response)
-    return resp.Data.Nonce
+    var resp = parseRPCResponse(response)
+    return resp.Nonce
 }
 
 func BalanceOf(address string) (int) {
     var response = get(RPC_ENDPOINT + "/balanceOf/?userAddress=" + address)
-    var resp = parseResponse(response)
-    return resp.Data.Balance
+    var resp = parseRPCResponse(response)
+    return resp.Balance
 }
 
 func BlocksCount() (int) {
     var response = get(RPC_ENDPOINT + "/blocksCount/")
-    var resp = parseResponse(response)
-    return resp.Data.BlocksCount
+    var resp = parseRPCResponse(response)
+    return resp.BlocksCount
 }
 
 func ValidatorsCount() (int) {
-    var response = get(RPC_ENDPOINT + "/validatorsCount/")
-    var resp = parseResponse(response)
-    return resp.Data.ValidatorsCount
+    var response = get(RPC_ENDPOINT + "/totalValidatorsCount/")
+    var resp = parseRPCResponse(response)
+    return resp.ValidatorsCount
 }
 
 func GetBlock(blockNumber int) (Block) {
     var blockNumberStr = strconv.Itoa(blockNumber)
     var response = get(RPC_ENDPOINT + "/block/?blockNumber=" + blockNumberStr)
-	var resp = parseResponse(response)
-    return resp.Data.Block
+	var resp = parseRPCResponse(response)
+    return resp.Block
 }
 
-func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateKey) (string) {
+func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateKey) (RPCResponse) {
     if len(to) != 42 {
-        return "Invalid address"
+        log.Fatalf("Invalid address ", to)
     }
     if nonce < 0 {
-        return "Nonce cannot be negative"
+        log.Fatalf("Nonce cannot be negative ", nonce)
     }
 
     amt := new(big.Int)
@@ -100,43 +108,77 @@ func TransferPWR(to string, amount string, nonce int, privateKey *ecdsa.PrivateK
     var buffer []byte
     buffer, err := txBytes(0, nonce, amt, to)
     if err != nil {
-        return "Failed to get tx bytes"
+        log.Fatalf("Failed to get tx bytes ", err.Error())
     }
 
     signature, err := signMessage(buffer, privateKey)
     if err != nil {
-        return "Failed to sign message"
+        log.Fatalf("Failed to sign message ", err.Error())
     }
+
+	var blockNumber = 0
+	if ReturnBlockNumberOnTx {
+		blockNumber = BlocksCount()
+	}
 
     finalTxn := append(buffer, signature...)
     var transferTx = hexutil.Encode(finalTxn)
     var transferTxn = `{"txn":"` + transferTx[2:] + `"}`
     var result = post(RPC_ENDPOINT + "/broadcast/", transferTxn)
-    return result
+
+	hash := crypto.Keccak256Hash(finalTxn)
+
+	transferResponse := parseRPCResponse(result)
+	
+	if transferResponse.Message == "Txn broadcasted to validator nodes" {
+		transferResponse.Success = true
+	} else {
+		transferResponse.Success = false
+		transferResponse.Error = transferResponse.Message
+	}
+
+	transferResponse.TxHash = hash.Hex()
+	transferResponse.BlockNumber = blockNumber
+    return transferResponse
 }
 
-func SendVMDataTx(vmId int64, data []byte, nonce int, privateKey *ecdsa.PrivateKey) (string) {
+func SendVMDataTx(vmId int64, data []byte, nonce int, privateKey *ecdsa.PrivateKey) (RPCResponse) {
     if nonce < 0 {
-        return "Nonce cannot be negative"
+        log.Fatalf("Nonce cannot be negative ", nonce)
     }
-
-    //vmId := new(big.Int)
-    //vmId.SetString(vmIdStr, 10)
 
     var buffer []byte
     buffer, err := vmDataBytes(vmId, nonce, data)
     if err != nil {
-        return "Failed to get vm data bytes"
+        log.Fatalf("Failed to get vm data bytes ", err.Error())
     }
 
     signature, err := signMessage(buffer, privateKey)
     if err != nil {
-        return "Failed to sign message"
+        log.Fatalf("Failed to sign message ", err.Error())
     }
+
+	var blockNumber = 0
+	if ReturnBlockNumberOnTx {
+		blockNumber = BlocksCount()
+	}
 
     finalTxn := append(buffer, signature...)
     var dataTx = hexutil.Encode(finalTxn)
     var dataTxn = `{"txn":"` + dataTx[2:] + `"}`
     var result = post(RPC_ENDPOINT + "/broadcast/", dataTxn)
-    return result
+	hash := crypto.Keccak256Hash(finalTxn)
+
+	vmDataTxResponse := parseRPCResponse(result)
+
+	if vmDataTxResponse.Message == "Txn broadcasted to validator nodes" {
+		vmDataTxResponse.Success = true
+	} else {
+		vmDataTxResponse.Success = false
+		vmDataTxResponse.Error = vmDataTxResponse.Message
+	}
+	
+	vmDataTxResponse.TxHash = hash.Hex()
+	vmDataTxResponse.BlockNumber = blockNumber
+    return vmDataTxResponse
 }
