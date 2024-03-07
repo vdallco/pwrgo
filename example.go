@@ -6,6 +6,9 @@ import (
 )
 
 func main() {
+    // Update RPC URL (default is mainnet)
+	pwrgo.SetRpcNodeUrl("https://pwrrpc.pwrlabs.io")
+
     // Import wallet by private key
     privateKeyHex := "0x9d4428c6e0638331b4866b70c831f8ba51c11b031f4b55eed4087bbb8ef0151f"
     var wallet = pwrgo.FromPrivateKey(privateKeyHex)

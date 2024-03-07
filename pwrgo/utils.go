@@ -9,9 +9,11 @@ import (
 
 var RPC_ENDPOINT = "https://pwrrpc.pwrlabs.io"
 
-
 func txBytes(txType int, nonce int, amount *big.Int, recipient string) ([]byte, error) {
    typeByte := decToBytes(txType, 1)
+   // TO-DO: Get ChainID from API instead of hard-coding it
+   chainByte := decToBytes(0, 1)
+
    nonceBytes := decToBytes(nonce, 4)
 
    amountBytes := amount.Bytes()
@@ -31,6 +33,7 @@ func txBytes(txType int, nonce int, amount *big.Int, recipient string) ([]byte, 
    
    var txnBytes []byte
    txnBytes = append(txnBytes, typeByte...)
+   txnBytes = append(txnBytes, chainByte...)
    txnBytes = append(txnBytes, paddedNonce...)
    txnBytes = append(txnBytes, paddedAmount...)
    txnBytes = append(txnBytes, paddedRecipient...)

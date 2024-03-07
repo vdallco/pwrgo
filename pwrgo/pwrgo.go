@@ -52,6 +52,10 @@ type RPCResponse struct {
   Error string
 }
 
+func SetRpcNodeUrl(url string) {
+   RPC_ENDPOINT = url;
+}
+
 func parseRPCResponse(responseStr string) (response RPCResponse) {
     err := json.Unmarshal([]byte(responseStr), &response)
     if err != nil {
